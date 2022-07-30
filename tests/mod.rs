@@ -1,10 +1,10 @@
-use std::process::Command;
-use robusta_jni::jni::{InitArgsBuilder, JavaVM, JNIEnv};
-use native::jni::User;
 use jni::objects::JString;
+use native::jni::User;
 use robusta_jni::convert::FromJavaValue;
+use robusta_jni::jni::{InitArgsBuilder, JNIEnv, JavaVM};
+use std::process::Command;
 
-fn print_exception(env: &JNIEnv) -> jni::errors::Result<()> {
+fn print_exception(env: JNIEnv) -> jni::errors::Result<()> {
     let ex = env.exception_occurred()?;
     env.exception_clear()?;
     let res = env.call_method(ex, "toString", "()Ljava/lang/String;", &[])?;
@@ -13,7 +13,6 @@ fn print_exception(env: &JNIEnv) -> jni::errors::Result<()> {
     println!("Java exception occurred: {}", s);
     Ok(())
 }
-
 
 #[test]
 fn java_integration_tests() {
@@ -42,32 +41,39 @@ fn vm_creation_and_object_usage() {
     let current_dir = std::env::current_dir().expect("Couldn't get current dir");
     let classpath = current_dir.join("./tests/driver/build/classes/java/main");
 
-    let vm_args  = InitArgsBuilder::new()
-        .option(&*format!("-Djava.class.path={}", classpath.to_string_lossy()))
-        .build().expect("can't create vm args");
+    let vm_args = InitArgsBuilder::new()
+        .option(&*format!(
+            "-Djava.class.path={}",
+            classpath.to_string_lossy()
+        ))
+        .build()
+        .expect("can't create vm args");
     let vm = JavaVM::new(vm_args).expect("can't create vm");
     let env = vm.attach_current_thread().expect("can't get vm env");
 
     User::initNative();
 
-    let count = User::getTotalUsersCount(&env)
-            .or_else(|e| {
-                let _ = print_exception(&env);
-                Err(e)
-            })
-            .expect("can't get user count");
+    let count = User::getTotalUsersCount(*env)
+        .or_else(|e| {
+            let _ = print_exception(*env);
+            Err(e)
+        })
+        .expect("can't get user count");
 
     assert_eq!(count, 0);
 
-    let u = User::new(&env, "user".into(), "password".into()).expect("can't create user instance");
+    let u = User::new(*env, "user".into(), "password".into()).expect("can't create user instance");
 
-    let count = User::getTotalUsersCount(&env)
+    let count = User::getTotalUsersCount(*env)
         .or_else(|e| {
-            let _ = print_exception(&env);
+            let _ = print_exception(*env);
             Err(e)
         })
         .expect("can't get user count");
     assert_eq!(count, 1);
 
-    assert_eq!(u.getPassword(&env).expect("can't get user password"), "password")
+    assert_eq!(
+        u.getPassword(*env).expect("can't get user password"),
+        "password"
+    )
 }
