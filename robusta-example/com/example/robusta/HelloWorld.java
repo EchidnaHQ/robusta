@@ -12,7 +12,7 @@ class HelloWorld {
         return i + u;
     }
 
-    // pub extern "jni" fn catchMe(self, _env: &JNIEnv) -> JniResult<i32>
+    // pub extern "jni" fn catchMe(self, _env: JNIEnv) -> JniResult<i32>
     private native void catchMe() throws IllegalArgumentException;
 
     // pub extern "java" fn javaAdd(&self, i: i32, u: i32) -> i32 {}
@@ -21,7 +21,7 @@ class HelloWorld {
     }
 
     public String javaAdd(String i, int f, String u) {
-            return i + u;
+        return i + u;
     }
 
     // pub extern "jni" fn nativeFun(self, static_call: bool) -> i32
@@ -52,5 +52,5 @@ class HelloWorld {
         System.out.println("Now h.foo is: \"" + h.foo + "\"");
         h.setStringHelloWorld();
         System.out.println("After setStringHelloWorld() h.foo is: \"" + h.foo + "\"");
-	}
+    }
 }
