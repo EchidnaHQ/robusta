@@ -188,7 +188,25 @@ impl<'env> JavaValue<'env> for JString<'env> {
     }
 }
 
+impl<'env, T: JavaValue<'env> + Signature> JavaValue<'env> for Option<T>
+where
+    JOption<T>: for<'borrow> FromJavaValue<'env, Source = JObject<'env>>,
+{
+    fn autobox(self, env: JNIEnv<'env>) -> JObject<'env> {
+        IntoJavaValue::into(<JOption<T> as From<Self>>::from(self), env)
+    }
+
+    /// Convert [`JObject`] to the implementing type.
+    fn unbox(s: JObject<'env>, env: JNIEnv<'env>) -> Self {
+        let option = <JOption<T> as FromJavaValue>::from(s, env);
+        Into::into(option)
+    }
+}
 impl<T: Signature> Signature for jni::errors::Result<T> {
+    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
+}
+
+impl<T: Signature> Signature for JOption<T> {
     const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
 }
 
@@ -322,7 +340,48 @@ impl<'a> TryFrom<JValueWrapper<'a>> for JString<'a> {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Object(o) => Ok(From::from(o)),
-            _ => Err(Error::WrongJValueType("string", value.0.type_name()).into()),
+            value => Err(Error::WrongJValueType("string", value.type_name()).into()),
+        }
+    }
+}
+
+pub enum JOption<T> {
+    Some(T),
+    None,
+}
+
+impl<T> Into<Option<T>> for JOption<T> {
+    fn into(self) -> Option<T> {
+        match self {
+            JOption::None => None,
+            JOption::Some(value) => Some(value),
+        }
+    }
+}
+
+impl<T> From<Option<T>> for JOption<T> {
+    fn from(option: Option<T>) -> Self {
+        match option {
+            None => JOption::None,
+            Some(value) => JOption::Some(value),
+        }
+    }
+}
+
+impl<'env, T> TryFrom<JValueWrapper<'env>> for JOption<T>
+where
+    T: TryFromJavaValue<'env, Source = JObject<'env>>,
+{
+    type Error = jni::errors::Error;
+
+    fn try_from(wrapper: JValueWrapper<'env>) -> Result<Self, Self::Error> {
+        match wrapper.0 {
+            JValue::Object(value) => Ok(JOption::Some(T::try_from(value, unsafe {
+                JNIEnv::from_raw(ENV.with(|env| env.get_native_interface())).unwrap()
+            })?)),
+
+            JValue::Void => Ok(JOption::None),
+            _ => unreachable!(),
         }
     }
 }

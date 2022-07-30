@@ -17,6 +17,8 @@ robusta-codegen = { version = "0.2", path = "./robusta-codegen" }
 jni = "0.19.0"
 paste = "1.0.0"
 static_assertions = "1.1.0"
+libc = "0.2"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 native = { path = "./tests/driver/native" }

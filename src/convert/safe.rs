@@ -263,3 +263,13 @@ where
         self.and_then(|s| TryIntoJavaValue::try_into(s, env))
     }
 }
+
+impl<'env, T: Signature + IntoJavaValue<'env>> TryIntoJavaValue<'env> for JOption<T> {
+    type Target = <JOption<T> as IntoJavaValue<'env>>::Target;
+
+    const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
+
+    fn try_into(self, env: JNIEnv<'env>) -> Result<Self::Target> {
+        Ok(IntoJavaValue::into(self, env))
+    }
+}

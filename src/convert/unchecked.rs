@@ -11,6 +11,8 @@
 //! **These functions *will* panic should any conversion fail.**
 //!
 
+use std::convert::TryFrom;
+
 use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
 use jni::JNIEnv;
@@ -241,5 +243,50 @@ where
 
     fn into(self, env: JNIEnv<'env>) -> Self::Target {
         self.map(|s| IntoJavaValue::into(s, env)).unwrap()
+    }
+}
+
+impl<'env, T> IntoJavaValue<'env> for JOption<T>
+where
+    T: IntoJavaValue<'env>,
+{
+    type Target = JObject<'env>;
+
+    fn into(self, env: JNIEnv<'env>) -> Self::Target {
+        use JOption::*;
+        match self {
+            Some(value) => IntoJavaValue::into(value, env).autobox(env),
+            None => JObject::null(),
+        }
+    }
+}
+
+impl<'env, T> FromJavaValue<'env> for JOption<T>
+where
+    T: FromJavaValue<'env, Source = JObject<'env>>,
+{
+    type Source = JObject<'env>;
+
+    fn from(s: Self::Source, env: JNIEnv<'env>) -> Self {
+        use JOption::*;
+        let s2 = s.clone();
+        if env.is_same_object(s, JObject::null()).unwrap() {
+            Some(<T as FromJavaValue>::from(s2, env))
+        } else {
+            None
+        }
+    }
+}
+
+impl<'env> FromJavaValue<'env> for Option<String> {
+    type Source = <String as FromJavaValue<'env>>::Source;
+
+    fn from(s: Self::Source, env: JNIEnv<'env>) -> Self {
+        let s2 = s.clone();
+        if env.is_same_object(s, JObject::null()).unwrap() {
+            Some(<String as FromJavaValue>::from(s2, env))
+        } else {
+            None
+        }
     }
 }
