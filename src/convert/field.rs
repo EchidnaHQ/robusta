@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use std::convert::{TryFrom, TryInto};
 
-use jni::errors::Result as JniResult;
 use jni::errors::Error as JniError;
+use jni::errors::Result as JniResult;
 use jni::objects::{JFieldID, JObject};
 use jni::signature::JavaType;
 use jni::JNIEnv;
@@ -16,21 +16,22 @@ use crate::convert::{
 use crate::jni::objects::JValue;
 
 #[derive(Clone)]
-pub struct Field<'env: 'borrow, 'borrow, T>
+pub struct Field<'env, T>
 where
-    T: Signature, {
-    env: &'borrow JNIEnv<'env>,
+    T: Signature,
+{
+    env: JNIEnv<'env>,
     field_id: JFieldID<'env>,
     obj: JObject<'env>,
     marker: PhantomData<T>,
 }
 
-impl<'env: 'borrow, 'borrow, T> Field<'env, 'borrow, T>
+impl<'env, T> Field<'env, T>
 where
     T: Signature,
 {
     pub fn new(
-        env: &'borrow JNIEnv<'env>,
+        env: JNIEnv<'env>,
         obj: JObject<'env>,
         classpath_path: &str,
         field_name: &str,
@@ -48,11 +49,11 @@ where
     }
 }
 
-impl<'env: 'borrow, 'borrow, T> Field<'env, 'borrow, T>
+impl<'env, T> Field<'env, T>
 where
-    T: Signature + TryIntoJavaValue<'env> + TryFromJavaValue<'env, 'borrow>,
-    <T as TryFromJavaValue<'env, 'borrow>>::Source: TryFrom<JValueWrapper<'env>, Error=JniError>,
-    JValue<'env>: From<<T as TryIntoJavaValue<'env>>::Target>
+    T: Signature + TryIntoJavaValue<'env> + TryFromJavaValue<'env>,
+    <T as TryFromJavaValue<'env>>::Source: TryFrom<JValueWrapper<'env>, Error = JniError>,
+    JValue<'env>: From<<T as TryIntoJavaValue<'env>>::Target>,
 {
     pub fn set(&mut self, value: T) -> JniResult<()> {
         let v = TryIntoJavaValue::try_into(value, self.env)?;
@@ -71,8 +72,7 @@ where
         )?;
 
         let f = JValueWrapper::from(res);
-        TryInto::try_into(f)
-            .and_then(|v| TryFromJavaValue::try_from(v, &self.env))
+        TryInto::try_into(f).and_then(|v| TryFromJavaValue::try_from(v, self.env))
     }
 
     // Java object is not sufficient to retrieve parent object / field owner
@@ -85,7 +85,7 @@ where
         source: JObject<'env>,
         classpath_path: &str,
         field_name: &str,
-        env: &'borrow JNIEnv<'env>,
+        env: JNIEnv<'env>,
     ) -> JniResult<Self> {
         let class = env.find_class(classpath_path)?;
         let field_id = env.get_field_id(class, field_name, <T as Signature>::SIG_TYPE)?;
@@ -99,11 +99,11 @@ where
     }
 }
 
-impl<'env: 'borrow, 'borrow, T> Field<'env, 'borrow, T>
+impl<'env, T> Field<'env, T>
 where
-    T: Signature + IntoJavaValue<'env> + FromJavaValue<'env, 'borrow>,
-    <T as FromJavaValue<'env, 'borrow>>::Source: TryFrom<JValueWrapper<'env>, Error=JniError>,
-    JValue<'env>: From<<T as IntoJavaValue<'env>>::Target>
+    T: Signature + IntoJavaValue<'env> + FromJavaValue<'env>,
+    <T as FromJavaValue<'env>>::Source: TryFrom<JValueWrapper<'env>, Error = JniError>,
+    JValue<'env>: From<<T as IntoJavaValue<'env>>::Target>,
 {
     pub fn set_unchecked(&mut self, value: T) {
         let v = IntoJavaValue::into(value, self.env);
@@ -125,7 +125,7 @@ where
             .unwrap();
 
         TryInto::try_into(JValueWrapper::from(res))
-            .map(|v| FromJavaValue::from(v, &self.env))
+            .map(|v| FromJavaValue::from(v, self.env))
             .unwrap()
     }
 
@@ -133,7 +133,7 @@ where
         source: JObject<'env>,
         classpath_path: &str,
         field_name: &str,
-        env: &'borrow JNIEnv<'env>,
+        env: JNIEnv<'env>,
     ) -> Self {
         let class = env.find_class(classpath_path).unwrap();
         let field_id = env
@@ -149,7 +149,7 @@ where
     }
 }
 
-impl<'env: 'borrow, 'borrow, T> Signature for Field<'env, 'borrow, T>
+impl<'env, T> Signature for Field<'env, T>
 where
     T: Signature,
 {

@@ -1,10 +1,9 @@
 use std::iter;
 
-use syn::{
-    parse_quote, FnArg, Pat, PatIdent, PatType, Path, PathArguments, Signature, Type,
-    TypeReference,
-};
 use proc_macro_error::emit_error;
+use syn::{
+    parse_quote, FnArg, Pat, PatIdent, PatType, Path, PathArguments, Signature, Type, TypeReference,
+};
 
 pub fn canonicalize_path(path: &Path) -> Path {
     let mut result = path.clone();
@@ -33,7 +32,7 @@ pub fn is_self_method(signature: &Signature) -> bool {
 pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
     let self_method = is_self_method(&signature);
 
-    // Check whether second argument (first exluding self) is of type &JNIEnv, if so we take it out from the signature
+    // Check whether second argument (first exluding self) is of type JNIEnv, if so we take it out from the signature
     let possible_env_arg = if !self_method {
         signature.inputs.iter().next()
     } else {
@@ -46,22 +45,22 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
                 let full_path: Path = parse_quote! { ::robusta_jni::jni::JNIEnv };
                 let imported_path: Path = parse_quote! { JNIEnv };
                 let canonicalized_type_path = canonicalize_path(&t.path);
-
-                canonicalized_type_path == imported_path || canonicalized_type_path == full_path
+                /* If the user has input `env: &JNIEnv` instead of `env: JNIEnv`, we let them know. */
+                if canonicalized_type_path == imported_path || canonicalized_type_path == full_path
+                {
+                    emit_error!(t, "explicit environment parameter must be of type `JNIEnv` not  `&JNIEnv`");
+                };
+                false
             } else {
                 false
             }
         } else if let Type::Path(t) = &**ty {
-            /* If the user has input `env: JNIEnv` instead of `env: &JNIEnv`, we let her know. */
+            
             let full_path: Path = parse_quote! { ::robusta_jni::jni::JNIEnv };
             let imported_path: Path = parse_quote! { JNIEnv };
             let canonicalized_type_path = canonicalize_path(&t.path);
 
-            if canonicalized_type_path == imported_path || canonicalized_type_path == full_path {
-                emit_error!(t, "explicit environment parameter must be of type `&JNIEnv`");
-            }
-
-            false
+            canonicalized_type_path == imported_path || canonicalized_type_path == full_path
         } else {
             false
         }
@@ -94,8 +93,7 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
 }
 
 pub fn get_abi(sig: &Signature) -> Option<String> {
-    sig
-        .abi
+    sig.abi
         .as_ref()
         .and_then(|l| l.name.as_ref().map(|n| n.value()))
 }

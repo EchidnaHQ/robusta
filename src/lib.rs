@@ -68,16 +68,16 @@
 //!     # #[package()]
 //!     # struct A;
 //!     #
-//!     # impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for A {
+//!     # impl<'env> TryFromJavaValue<'env> for A {
 //!     #    type Source = JObject<'env>;
 //!     #
-//!     #    fn try_from(s: Self::Source,env: &'borrow JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
+//!     #    fn try_from(s: Self::Source,env: JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
 //!     #         Ok(A)
 //!     #     }
 //!     # }
 //!     #
 //! impl A {
-//!     pub extern "jni" fn op(self, _env: &JNIEnv, flag: bool) -> i32 {
+//!     pub extern "jni" fn op(self, _env: JNIEnv, flag: bool) -> i32 {
 //!         //                       ^^^^^ optional
 //!         if flag {
 //!             1
@@ -127,17 +127,17 @@
 //!     # #[package()]
 //!     # struct A;
 //!     #
-//!     # impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for A {
+//!     # impl<'env,> TryFromJavaValue<'env> for A {
 //!     #    type Source = JObject<'env>;
 //!     #
-//!     #    fn try_from(s: Self::Source,env: &'borrow JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
+//!     #    fn try_from(s: Self::Source,env: JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
 //!     #         Ok(A)
 //!     #     }
 //!     # }
 //!     #
 //! impl A {
 //!     pub extern "java" fn staticJavaMethod(
-//!         env: &JNIEnv,
+//!         env: JNIEnv,
 //!         i: i32,
 //!         u: i32,
 //!     ) -> ::robusta_jni::jni::errors::Result<i32> {}
@@ -161,10 +161,10 @@
 //!     # #[package()]
 //!     # struct A;
 //!     #
-//!     # impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for A {
+//!     # impl<'env,> TryFromJavaValue<'env> for A {
 //!     #    type Source = JObject<'env>;
 //!     #
-//!     #    fn try_from(s: Self::Source,env: &'borrow JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
+//!     #    fn try_from(s: Self::Source,env: JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
 //!     #         Ok(A)
 //!     #     }
 //!     # }
@@ -172,7 +172,7 @@
 //!     # impl<'env> TryIntoJavaValue<'env> for &A {
 //!     #   type Target = JObject<'env>;
 //!     #
-//!     #   fn try_into(self, env: &JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
+//!     #   fn try_into(self, env: JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
 //!     #         env.new_object("A", "()V", &[])
 //!     #   }
 //!     # }
@@ -180,7 +180,7 @@
 //! impl A {
 //!     pub extern "java" fn selfMethod(
 //!         &self,
-//!         env: &JNIEnv,
+//!         env: JNIEnv,
 //!         i: i32,
 //!         u: i32,
 //!     ) -> ::robusta_jni::jni::errors::Result<i32> {}
@@ -204,10 +204,10 @@
 //!     # #[package()]
 //!     # struct A;
 //!     #
-//!     # impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for A {
+//!     # impl<'env,> TryFromJavaValue<'env> for A {
 //!     #    type Source = JObject<'env>;
 //!     #
-//!     #    fn try_from(s: Self::Source,env: &'borrow JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
+//!     #    fn try_from(s: Self::Source,env: JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
 //!     #         Ok(A)
 //!     #     }
 //!     # }
@@ -215,7 +215,7 @@
 //! impl A {
 //!     #[constructor]  //   vvv ---- this method name can be anything because it's a constructor
 //!     pub extern "java" fn new(
-//!         env: &JNIEnv
+//!         env: JNIEnv
 //!     ) -> ::robusta_jni::jni::errors::Result<Self> {}
 //! }
 //! # }

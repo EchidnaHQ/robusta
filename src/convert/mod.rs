@@ -38,33 +38,52 @@
 //! or `java.lang.RuntimeException` if omitted).
 //!
 
-use std::convert::TryFrom;
-use std::str::FromStr;
-
 use jni::errors::Error;
-use jni::JNIEnv;
 use jni::objects::{JObject, JString, JValue};
 use jni::signature::JavaType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
+use jni::{Executor, JNIEnv, JavaVM};
+use lazy_static::lazy_static;
 use paste::paste;
+use std::convert::TryFrom;
+use std::str::FromStr;
+use std::sync::Arc;
+lazy_static! {
+    static ref VM: JavaVM = JavaVM::default();
+}
+thread_local! {
+    static ENV: JNIEnv<'static> = {
+        VM.attach_current_thread_as_daemon().unwrap()
+   };
+}
 
 pub use field::*;
 pub use robusta_codegen::Signature;
 pub use safe::*;
 pub use unchecked::*;
 
+pub mod field;
 pub mod safe;
 pub mod unchecked;
-pub mod field;
 
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JObject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]
 pub trait JavaValue<'env> {
     /// Convert instance to a [`JObject`].
-    fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env>;
+    fn autobox(self, env: JNIEnv<'env>) -> JObject<'env>;
 
     /// Convert [`JObject`] to the implementing type.
-    fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self;
+    fn unbox(s: JObject<'env>, env: JNIEnv<'env>) -> Self;
+
+    fn from_ptr(env: JNIEnv<'env>, ptr: jni::sys::jobject) -> Self
+    where
+        Self: Sized,
+    {
+        Self::unbox(
+            <jni::objects::JObject<'env> as From<::jni::sys::jobject>>::from(ptr),
+            env,
+        )
+    }
 }
 
 /// This trait provides [type signatures](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/types.html#type-signatures) for types.
@@ -86,14 +105,14 @@ macro_rules! jvalue_types {
         }
 
         impl<'env> JavaValue<'env> for $type {
-            fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
+            fn autobox(self, env: JNIEnv<'env>) -> JObject<'env> {
                 env.call_static_method_unchecked(concat!("java/lang/", stringify!($boxed)),
                     (concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";")),
                     JavaType::from_str(concat!("Ljava/lang/", stringify!($boxed), ";")).unwrap(),
                     &[Into::into(self)]).unwrap().l().unwrap()
             }
 
-            fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self {
+            fn unbox(s: JObject<'env>, env: JNIEnv<'env>) -> Self {
                 paste!(Into::into(env.call_method_unchecked(s, (concat!("java/lang/", stringify!($boxed)), stringify!($unbox_method), concat!("()", stringify!($sig))), JavaType::from_str(stringify!($sig)).unwrap(), &[])
                     .unwrap().[<$sig:lower>]()
                     .unwrap()))
@@ -124,11 +143,11 @@ impl Signature for () {
 }
 
 impl<'env> JavaValue<'env> for () {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+    fn autobox(self, _env: JNIEnv<'env>) -> JObject<'env> {
         panic!("called `JavaValue::autobox` on unit value")
     }
 
-    fn unbox(_s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {}
+    fn unbox(_s: JObject<'env>, _env: JNIEnv<'env>) -> Self {}
 }
 
 impl<'env> Signature for JObject<'env> {
@@ -136,21 +155,21 @@ impl<'env> Signature for JObject<'env> {
 }
 
 impl<'env> JavaValue<'env> for JObject<'env> {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+    fn autobox(self, _env: JNIEnv<'env>) -> JObject<'env> {
         self
     }
 
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+    fn unbox(s: JObject<'env>, _env: JNIEnv<'env>) -> Self {
         s
     }
 }
 
 impl<'env> JavaValue<'env> for jobject {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+    fn autobox(self, _env: JNIEnv<'env>) -> JObject<'env> {
         From::from(self)
     }
 
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+    fn unbox(s: JObject<'env>, _env: JNIEnv<'env>) -> Self {
         s.into_inner()
     }
 }
@@ -160,11 +179,11 @@ impl<'env> Signature for JString<'env> {
 }
 
 impl<'env> JavaValue<'env> for JString<'env> {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+    fn autobox(self, _env: JNIEnv<'env>) -> JObject<'env> {
         Into::into(self)
     }
 
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+    fn unbox(s: JObject<'env>, _env: JNIEnv<'env>) -> Self {
         From::from(s)
     }
 }
